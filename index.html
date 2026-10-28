@@ -109,10 +109,12 @@
                 box-shadow: none;
                 margin: 0;
                 width: 210mm;
-                height: 297mm;
+                height: auto;
+                min-height: 297mm;
                 padding: 12mm 16mm;
+                break-after: page;
                 page-break-after: always;
-                overflow: hidden;
+                overflow: visible;
             }
             .a4-page:last-child {
                 page-break-after: auto;
@@ -161,7 +163,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
                     🔄 คำนวณเกรดใหม่
                 </button>
                 <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded text-xs font-bold shadow transition">
-                    🖨️ ส่งออกไฟล์ PDF (10 หน้า)
+                    🖨️ พิมพ์ / บันทึกเป็น PDF
                 </button>
                 <button onclick="exportToWordDocx()" class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded text-xs font-bold shadow transition">
                     📄 ส่งออกไฟล์ DOCX (Word)
