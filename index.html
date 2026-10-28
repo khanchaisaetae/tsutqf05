@@ -10,7 +10,7 @@
     
     <style>
         body {
-            font-family: 'TH Sarabun New', 'Sarabun', sans-serif;
+            font-family: 'TH SarabunPSK', 'TH Sarabun New', 'Sarabun', sans-serif;
             background-color: #e2e8f0;
             color: #000;
         }
@@ -109,8 +109,8 @@
                 box-shadow: none;
                 margin: 0;
                 width: 210mm;
-                height: auto;
-                min-height: 297mm;
+                height: 297mm;
+                min-height: 0;
                 padding: 12mm 16mm;
                 break-after: page;
                 page-break-after: always;
@@ -1650,6 +1650,30 @@ async function exportToWordDocx() {
             recalcGradeTable();
         });
     </script>
+<script>
+// Fit long sections before printing, without hiding their contents.
+window.addEventListener('beforeprint', () => {
+  document.querySelectorAll('#moco5-document .a4-page').forEach(page => {
+    const items = Array.from(page.children);
+    items.forEach(el => { el.style.zoom = ''; });
+    let scale = 1;
+    const style = getComputedStyle(page);
+    const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+    const available = page.clientHeight - padding - 4;
+    for (let attempt = 0; attempt < 6; attempt++) {
+      const height = page.scrollHeight - padding;
+      if (page.scrollHeight <= page.clientHeight || !height) break;
+            scale = Math.max(0.8, scale * available / height * 0.995);
+      items.forEach(el => { el.style.zoom = scale; });
+    }
+    if (page.scrollHeight > page.clientHeight) page.style.height = 'auto';
+  });
+});
+window.addEventListener('afterprint', () => {
+  document.querySelectorAll('#moco5-document .a4-page > *').forEach(el => { el.style.zoom = ''; });
+  document.querySelectorAll('#moco5-document .a4-page').forEach(page => { page.style.height = ''; });
+});
+</script>
 </body>
 </html>
 
