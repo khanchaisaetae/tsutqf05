@@ -125,7 +125,11 @@
                 padding: 0 !important;
             }
         }
-    </style>
+    @media print {
+ .running-header-slot, .tsu-header-container, .tsu-header-table { visibility: visible !important; }
+ .tsu-logo-img { display: block !important; visibility: visible !important; opacity: 1 !important; width: 48px !important; height: auto !important; max-width: none !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+</style>
 <script>/*!
 
 JSZip v3.10.1 - A JavaScript class for generating and reading zip files
@@ -162,7 +166,7 @@ https://github.com/nodeca/pako/blob/main/LICENSE
                 <button onclick="recalcGradeTable()" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-1.5 rounded text-xs font-semibold transition">
                     🔄 คำนวณเกรดใหม่
                 </button>
-                <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded text-xs font-bold shadow transition">
+                <button onclick="printReportPdf()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-3.5 py-1.5 rounded text-xs font-bold shadow transition">
                     🖨️ พิมพ์ / บันทึกเป็น PDF
                 </button>
                 <button onclick="exportToWordDocx()" class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded text-xs font-bold shadow transition">
@@ -1325,6 +1329,34 @@ https://github.com/nodeca/pako/blob/main/LICENSE
         };
 
         // สร้าง Running Header ตรามหาวิทยาลัยทักษิณเหมือนกันทุกหน้า (หน้า 1 - 10)
+
+        async function printReportPdf() {
+            const button = document.activeElement;
+            if (button) button.disabled = true;
+            try {
+                const pages = Array.from(document.querySelectorAll('#moco5-document .a4-page'));
+                const logos = Array.from(document.querySelectorAll('#moco5-document .tsu-logo-img'));
+                if (logos.length !== pages.length || !logos.length) throw new Error('หัวกระดาษหรือตรามหาวิทยาลัยยังไม่ครบ กรุณารอให้รายงานโหลดเสร็จ');
+                await Promise.all(logos.map(async img => {
+                    img.loading = 'eager';
+                    img.style.display = 'block';
+                    img.style.width = '48px';
+                    img.style.height = 'auto';
+                    if (!img.getAttribute('src')) img.src = currentLogoDataUrl;
+                    await Promise.race([
+                        img.decode(),
+                        new Promise((_, reject) => setTimeout(() => reject(new Error('โหลดตรามหาวิทยาลัยไม่สำเร็จ')), 10000))
+                    ]);
+                    if (!img.naturalWidth) throw new Error('ตรามหาวิทยาลัยไม่พร้อมพิมพ์');
+                }));
+                await document.fonts.ready;
+                await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+                window.print();
+            } catch (err) {
+                alert('ยังไม่พิมพ์ PDF: ' + err.message);
+            } finally { if (button) button.disabled = false; }
+        }
+
         function renderAllRunningHeaders() {
             const slots = document.querySelectorAll('.running-header-slot');
             const headerHTML = `
