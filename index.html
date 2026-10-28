@@ -1,0 +1,1236 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบสร้างรายงาน มคอ.5 อัตโนมัติ (TSU MOCO.5 Generator)</title>
+    <!-- Tailwind CSS สำหรับ UI หน้าจอควบคุม -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF.js สำหรับอ่านไฟล์ PDF ฝั่ง Client โดยไม่ใช้ API -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <!-- Google Fonts: Sarabun สำหรับแสดงผลและพิมพ์เอกสารราชการ -->
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            background-color: #f3f4f6;
+        }
+        /* สไตล์สำหรับเอกสาร มคอ.5 (จำลองหน้ากระดาษ A4) */
+        .moco-page {
+            background: white;
+            width: 210mm;
+            min-height: 297mm;
+            padding: 15mm 18mm;
+            margin: 0 auto 20px auto;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            color: #000;
+            font-size: 13pt;
+            line-height: 1.45;
+            position: relative;
+        }
+        .moco-header-box {
+            border: 1px solid #000;
+            padding: 6px 10px;
+            margin-bottom: 12px;
+            font-size: 11pt;
+        }
+        .moco-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 12px;
+            font-size: 12pt;
+        }
+        .moco-table th, .moco-table td {
+            border: 1px solid #000;
+            padding: 5px 8px;
+            vertical-align: top;
+        }
+        .moco-table th {
+            background-color: #f9fafb;
+            font-weight: 700;
+            text-align: center;
+        }
+        .editable-field {
+            border-bottom: 1px dashed #2563eb;
+            padding: 0 4px;
+            color: #1e40af;
+            background-color: #eff6ff;
+            border-radius: 2px;
+            transition: all 0.2s;
+        }
+        .editable-field:focus {
+            outline: 2px solid #2563eb;
+            background-color: #fff;
+            color: #000;
+        }
+        .editable-block {
+            border: 1px dashed #93c5fd;
+            padding: 6px;
+            background-color: #f8fafc;
+            min-height: 28px;
+        }
+        .editable-block:focus {
+            outline: 2px solid #2563eb;
+            background-color: #fff;
+        }
+
+        /* สไตล์สำหรับการพิมพ์เป็น PDF (ซ่อน UI ควบคุมทั้งหมด) */
+        @media print {
+            body {
+                background: white;
+                margin: 0;
+                padding: 0;
+            }
+            .no-print {
+                display: none !important;
+            }
+            .moco-page {
+                box-shadow: none;
+                margin: 0;
+                padding: 12mm 15mm;
+                width: 100%;
+                min-height: auto;
+                page-break-after: always;
+            }
+            .moco-page:last-child {
+                page-break-after: auto;
+            }
+            .editable-field, .editable-block {
+                border: none !important;
+                background-color: transparent !important;
+                color: #000 !important;
+                padding: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- แถบควบคุมด้านบน (Control Panel - ไม่แสดงตอนพิมพ์ PDF) -->
+    <div class="no-print bg-slate-900 text-white shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="bg-blue-600 p-2 rounded-lg font-bold text-lg">TSU</div>
+                <div>
+                    <h1 class="font-bold text-base md:text-lg">ระบบสร้างรายงาน มคอ.5 อัตโนมัติ (Offline / No-API)</h1>
+                    <p class="text-xs text-slate-300">คณะศึกษาศาสตร์ มหาวิทยาลัยทักษิณ | ข้อมูลตั้งต้น: 0317221 (1/2569)</p>
+                </div>
+            </div>
+            
+            <div class="flex flex-wrap items-center gap-2">
+                <button onclick="toggleUploadModal()" class="bg-slate-700 hover:bg-slate-600 text-white px-3 py-2 rounded text-sm flex items-center gap-1.5 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
+                    นำเข้าไฟล์ PDF (เกรด / มคอ.3 / ประเมิน)
+                </button>
+                <button onclick="recalculateAll()" class="bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded text-sm flex items-center gap-1.5 transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+                    คำนวณสถิติเกรดใหม่
+                </button>
+                <button onclick="window.print()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded text-sm font-semibold flex items-center gap-1.5 shadow transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"></path></svg>
+                    ส่งออกเป็น PDF (Print)
+                </button>
+                <button onclick="exportToDocx()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-semibold flex items-center gap-1.5 shadow transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                    ส่งออกเป็น DOCX (Word)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- คำแนะนำการใช้งานเบื้องต้น -->
+    <div class="no-print max-w-5xl mx-auto mt-4 px-4">
+        <div class="bg-blue-50 border-l-4 border-blue-600 p-3 rounded flex items-center justify-between text-sm text-blue-900">
+            <div>
+                <strong>คำแนะนำ:</strong> ข้อมูลสีน้ำเงินที่มีเส้นประด้านล่างถูกดึงมาจากไฟล์แนบของ <strong>ดร.ขัน</strong> เรียบร้อยแล้ว สามารถ <strong>คลิกเพื่อพิมพ์แก้ไขข้อความหรือตัวเลข</strong> บนหน้ากระดาษได้โดยตรง เมื่อแก้ไขตัวเลขจำนวนนิสิตที่ได้เกรดในหมวดที่ 3 ระบบจะคำนวณร้อยละและ GPA เฉลี่ยให้โดยอัตโนมัติ
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal สำหรับอัปโหลดไฟล์ PDF เพื่อสกัดข้อมูลใหม่ (Client-side PDF.js) -->
+    <div id="uploadModal" class="no-print fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-xl max-w-2xl w-full p-6 shadow-2xl">
+            <div class="flex justify-between items-center border-b pb-3 mb-4">
+                <h2 class="text-lg font-bold text-slate-800">นำเข้าไฟล์ PDF เพื่อสกัดข้อมูลอัตโนมัติ (ไม่ใช้ API)</h2>
+                <button onclick="toggleUploadModal()" class="text-gray-500 hover:text-gray-800 text-xl font-bold">&times;</button>
+            </div>
+            <div class="space-y-4 text-sm">
+                <div class="border-2 border-dashed border-slate-300 rounded-lg p-4 bg-slate-50">
+                    <label class="block font-semibold text-slate-700 mb-1">1. อัปโหลดไฟล์ใบส่งเกรด (PDF จากระบบทะเบียน TSU)</label>
+                    <input type="file" id="gradePdfInput" accept=".pdf" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" onchange="handleGradePdfUpload(event)">
+                    <p id="gradeParseStatus" class="text-xs text-emerald-600 mt-1"></p>
+                </div>
+                <div class="border-2 border-dashed border-slate-300 rounded-lg p-4 bg-slate-50">
+                    <label class="block font-semibold text-slate-700 mb-1">2. อัปโหลดไฟล์ผลประเมินการเรียนการสอน (PDF จากระบบ TLES)</label>
+                    <input type="file" id="evalPdfInput" accept=".pdf" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100" onchange="handleEvalPdfUpload(event)">
+                    <p id="evalParseStatus" class="text-xs text-emerald-600 mt-1"></p>
+                </div>
+                <div class="border-2 border-dashed border-slate-300 rounded-lg p-4 bg-slate-50">
+                    <label class="block font-semibold text-slate-700 mb-1">3. อัปโหลดไฟล์ มคอ.3 (PDF)</label>
+                    <input type="file" id="moco3PdfInput" accept=".pdf" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" onchange="handleMoco3PdfUpload(event)">
+                    <p id="moco3ParseStatus" class="text-xs text-emerald-600 mt-1"></p>
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <button onclick="toggleUploadModal()" class="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded font-semibold text-sm">เสร็จสิ้นและดูผลลัพธ์</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- พื้นที่เอกสาร มคอ.5 (ใช้สำหรับทั้งแสดงผล พิมพ์ PDF และแปลงเป็น DOCX) -->
+    <div id="document-container" class="my-6">
+
+        <!-- ==================== หน้าที่ 1 : หมวดที่ 1 ข้อมูลทั่วไป ==================== -->
+        <div class="moco-page">
+            <div class="text-right text-xs mb-1">ปรับปรุง: พ.ค. 2565</div>
+            
+            <!-- กล่องหัวกระดาษมาตรฐาน ม.ทักษิณ -->
+            <div class="moco-header-box">
+                <div class="flex justify-between flex-wrap">
+                    <div><strong>หลักสูตร</strong> <span contenteditable="true" class="editable-field" id="hdr_program">การศึกษาบัณฑิต</span></div>
+                    <div><strong>ระดับ</strong> ☑ ปริญญาตรี ☐ ป.บัณฑิต ☐ โท ☐ ป.บัณฑิตชั้นสูง ☐ เอก</div>
+                </div>
+                <div class="flex justify-between flex-wrap mt-1">
+                    <div><strong>สาขาวิชา</strong> <span contenteditable="true" class="editable-field" id="hdr_major">การศึกษา (วิชาเอกเทคโนโลยีและสื่อสารการศึกษา)</span></div>
+                    <div><strong>คณะ/วิทยาลัย</strong> <span contenteditable="true" class="editable-field" id="hdr_faculty">ศึกษาศาสตร์</span></div>
+                </div>
+                <div class="flex justify-between flex-wrap mt-1">
+                    <div><strong>รหัสวิชา</strong> <span contenteditable="true" class="editable-field" id="hdr_code">0317221</span></div>
+                    <div><strong>ชื่อรายวิชา</strong> <span contenteditable="true" class="editable-field" id="hdr_name">ระบบเครื่องคอมพิวเตอร์และการบำรุงรักษา</span></div>
+                </div>
+            </div>
+
+            <div class="text-center font-bold text-base my-4">
+                รายงานผลดำเนินการของรายวิชา (มคอ.5)<br>
+                ประจำภาคเรียนที่ <span contenteditable="true" class="editable-field" id="doc_term">1</span> ปีการศึกษา <span contenteditable="true" class="editable-field" id="doc_year">2569</span>
+            </div>
+
+            <div class="font-bold mb-2">หมวดที่ 1 ข้อมูลทั่วไป</div>
+            <table class="moco-table">
+                <thead>
+                    <tr>
+                        <th style="width: 35%;">หัวข้อ</th>
+                        <th style="width: 65%;">รายละเอียดข้อมูล</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>1. รหัสและชื่อรายวิชา</strong></td>
+                        <td>
+                            <div>(ภาษาไทย) <span contenteditable="true" class="editable-field" id="sec1_name_th">0317221 ระบบเครื่องคอมพิวเตอร์และการบำรุงรักษา (3(2-2-5))</span></div>
+                            <div class="mt-1">(ภาษาอังกฤษ) <span contenteditable="true" class="editable-field" id="sec1_name_en">Computer System and Maintenance</span></div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>2. ประเภทของรายวิชา</strong></td>
+                        <td>
+                            <div>☐ รายวิชาศึกษาทั่วไป &nbsp;&nbsp;&nbsp; ☐ วิชาเลือกเสรี</div>
+                            <div class="mt-1">☑ รายวิชาเฉพาะ : <span contenteditable="true" class="editable-field">วิชาเอกบังคับ ของหลักสูตรการศึกษาบัณฑิต (วิชาเอกเทคโนโลยีและสื่อสารการศึกษา)</span></div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>3. รายวิชาที่ต้องเรียนมาก่อน (ถ้ามี)</strong></td>
+                        <td><span contenteditable="true" class="editable-field" id="sec1_prereq">ไม่มี</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>4. ชื่ออาจารย์ผู้รับผิดชอบรายวิชา</strong></td>
+                        <td><span contenteditable="true" class="editable-field" id="sec1_resp_instructor">อ.ดร.ขรรค์ชัย แซ่แต้</span></td>
+                    </tr>
+                    <tr>
+                        <td><strong>5. ชื่ออาจารย์ผู้สอน (รายกลุ่ม) :</strong></td>
+                        <td>
+                            <div>จำนวน <span contenteditable="true" class="editable-field">1</span> คน ได้แก่ <span contenteditable="true" class="editable-field" id="sec1_instructors">อ.ดร.ขรรค์ชัย แซ่แต้ (กลุ่ม S101)</span></div>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td><strong>6. ปีการศึกษา/ภาคเรียน ที่เปิดสอน</strong></td>
+                        <td>ปีการศึกษา <span contenteditable="true" class="editable-field" id="sec1_year">2569</span> / ภาคเรียนที่ <span contenteditable="true" class="editable-field" id="sec1_term">1</span> (ชั้นปีที่ 1)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>7. สถานที่เรียนภายนอกมหาวิทยาลัย</strong></td>
+                        <td>
+                            <div>รวม <span contenteditable="true" class="editable-field">0</span> แห่ง (จัดการเรียนการสอนภายในมหาวิทยาลัย ณ อาคาร SC ห้อง SC627 มหาวิทยาลัยทักษิณ วิทยาเขตสงขลา)</div>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="font-bold mt-4 mb-2">หมวดที่ 2 การจัดการเรียนการสอนของรายวิชา</div>
+            <div class="font-semibold mb-1">2.1 ผลลัพธ์การเรียนรู้ระดับรายวิชา (Course Learning Outcomes: CLOs) ที่กำหนดไว้ในรายละเอียดของรายวิชา (มคอ.3)</div>
+            <div class="mb-1 text-sm">เมื่อสิ้นสุดการเรียนการสอน ผู้สำเร็จการศึกษาในรายวิชาจะสามารถ:</div>
+            <table class="moco-table">
+                <tbody>
+                    <tr>
+                        <td style="width: 15%; font-weight: bold; text-align: center;">CLO 1</td>
+                        <td style="width: 85%;"><div contenteditable="true" class="editable-block" id="clo1_text">1. มีความรู้ความเข้าใจเกี่ยวกับระบบเครื่องคอมพิวเตอร์ หน้าที่และส่วนประกอบต่างๆ ของเครื่องคอมพิวเตอร์ (สอดคล้องกับ PLO1: Sub PLO 1B และ PLO4: Sub PLO 4A)</div></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: center;">CLO 2</td>
+                        <td><div contenteditable="true" class="editable-block" id="clo2_text">2. สามารถประกอบเชื่อมต่อระบบภายในของเครื่องคอมพิวเตอร์ได้ (สอดคล้องกับ PLO12: Sub PLO 12E)</div></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: center;">CLO 3</td>
+                        <td><div contenteditable="true" class="editable-block" id="clo3_text">3. สามารถติดตั้งระบบปฏิบัติการเครื่องคอมพิวเตอร์ได้ (สอดคล้องกับ PLO12: Sub PLO 12E)</div></td>
+                    </tr>
+                    <tr>
+                        <td style="font-weight: bold; text-align: center;">CLO 4</td>
+                        <td><div contenteditable="true" class="editable-block" id="clo4_text">4. สามารถปฏิบัติการใช้และการบำรุงรักษาเครื่องคอมพิวเตอร์ได้ (สอดคล้องกับ PLO1: Sub PLO 1B, PLO4: Sub PLO 4A และ PLO12: Sub PLO 12E)</div></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ==================== หน้าที่ 2 : หมวดที่ 2 (ต่อ) วิธีสอนและแผนการสอน ==================== -->
+        <div class="moco-page">
+            <div class="font-semibold mb-1">2.2 ประสิทธิผลของวิธีสอนที่จะทำให้เกิดผลลัพธ์การเรียนรู้ตามที่ระบุไว้ในรายละเอียดของรายวิชา (มคอ.3)</div>
+            <div class="mb-1">2.2.1 มีวิธีการสอนเหมาะสมกับผลลัพธ์การเรียนรู้ที่กำหนด ดังนี้ (สัดส่วน Active Learning ตาม มคอ.2: PBL 10%, Activity-Based 40%, เชิงรุกอื่นๆ 50%)</div>
+            <table class="moco-table text-sm">
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="width: 32%;">วิธีการจัดการเรียนการสอนในรายวิชา</th>
+                        <th colspan="4" style="width: 24%;">ผลลัพธ์การเรียนรู้ (CLOs)</th>
+                        <th colspan="2" style="width: 14%;">ปัญหาของวิธีสอน</th>
+                        <th rowspan="2" style="width: 30%;">ปัญหาและข้อเสนอแนะในการแก้ไขปัญหา</th>
+                    </tr>
+                    <tr>
+                        <th>CLO1</th>
+                        <th>CLO2</th>
+                        <th>CLO3</th>
+                        <th>CLO4</th>
+                        <th>มี</th>
+                        <th>ไม่มี</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1. การจัดการเรียนรู้แบบบรรยายประกอบสื่อนำเสนอและสื่อของจริง</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td><div contenteditable="true" class="editable-block">นิสิตบางส่วนพื้นฐานด้านฮาร์ดแวร์ไม่เท่ากัน ทำให้ตามเนื้อหาทฤษฎีเชิงลึกได้ช้า แก้ไขโดยใช้สื่ออุปกรณ์ของจริงประกอบการอธิบายและสรุปซ้ำ</div></td>
+                    </tr>
+                    <tr>
+                        <td>2. การศึกษาค้นคว้า รายงานกลุ่ม และการแลกเปลี่ยนเรียนรู้</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td class="text-center"></td>
+                        <td class="text-center"></td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td><div contenteditable="true" class="editable-block">-</div></td>
+                    </tr>
+                    <tr>
+                        <td>3. การจัดการเรียนรู้เชิงรุก (Active Learning) สาธิตประกอบการบรรยาย</td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td><div contenteditable="true" class="editable-block">-</div></td>
+                    </tr>
+                    <tr>
+                        <td>4. การฝึกปฏิบัติการกลุ่ม (ประกอบเครื่อง ติดตั้ง OS และซ่อมบำรุง)</td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td><div contenteditable="true" class="editable-block">ชุดเครื่องคอมพิวเตอร์สำหรับฝึกถอดประกอบมีจำกัดบางรายการ แก้ไขโดยแบ่งกลุ่มหมุนเวียนฝึกปฏิบัติและใช้ Virtual Simulator ช่วยเสริม</div></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="mb-1 mt-3">2.2.2 จัดสิ่งสนับสนุนเพื่อประสิทธิผลในการเรียนรู้ของนิสิต</div>
+            <table class="moco-table text-sm">
+                <thead>
+                    <tr>
+                        <th style="width: 30%;">สิ่งสนับสนุน</th>
+                        <th style="width: 35%;">มีการดำเนินการ</th>
+                        <th style="width: 15%;">ไม่ได้ดำเนินการ</th>
+                        <th style="width: 20%;">แผนการปรับปรุง</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1. คู่มือนิสิตที่เป็นปัจจุบัน</td>
+                        <td>☑ ดำเนินการ (ปรับปรุงล่าสุด ปีการศึกษา 2569)</td>
+                        <td class="text-center">-</td>
+                        <td><span contenteditable="true" class="editable-field">ปรับปรุงเนื้อหาให้ทันสมัยทุกปี</span></td>
+                    </tr>
+                    <tr>
+                        <td>2. การใช้เทคโนโลยีสารสนเทศ</td>
+                        <td>☑ ดำเนินการ (ใช้สื่อดิจิทัล, ระบบเครือข่าย และ Line Official ประจำวิชา)</td>
+                        <td class="text-center">-</td>
+                        <td><span contenteditable="true" class="editable-field">พัฒนาสื่อจำลองเสมือนจริง (Simulator) เพิ่มเติม</span></td>
+                    </tr>
+                    <tr>
+                        <td>3. ระบบในการรับทราบปัญหา</td>
+                        <td>☑ ดำเนินการ (เปิดช่องทางซักถามในชั้นเรียน, Line Official และโทรศัพท์สายตรง)</td>
+                        <td class="text-center">-</td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                    <tr>
+                        <td>4. ระบบช่วยเหลือนิสิตที่มีปัญหา</td>
+                        <td>☑ ดำเนินการ (จัดเวลาให้คำปรึกษา 4 ชม./สัปดาห์ ณ ห้อง 337 และสอนซ่อมเสริมภาคปฏิบัติ)</td>
+                        <td class="text-center">-</td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="mb-1 mt-3">2.2.3 การจัดการเรียนการสอน เทียบกับ แผนการสอน ตามที่ระบุไว้ในรายละเอียดของรายวิชา (มคอ.3)</div>
+            <div class="font-semibold text-sm mb-1">ก. ผลการดำเนินการ</div>
+            <table class="moco-table text-sm">
+                <tbody>
+                    <tr>
+                        <td style="width: 35%;">1. จำนวนชั่วโมงตามแผนการสอน (ทฤษฎี 30 + ปฏิบัติ 30)</td>
+                        <td style="width: 15%; text-align: center;"><span contenteditable="true" class="editable-field">60</span> ชม.</td>
+                        <td style="width: 35%;">1. จำนวนหัวข้อการเรียนรู้ตามแผนการสอน</td>
+                        <td style="width: 15%; text-align: center;"><span contenteditable="true" class="editable-field">7</span> หัวข้อ</td>
+                    </tr>
+                    <tr>
+                        <td>2. จำนวนชั่วโมงที่สอนได้จริง</td>
+                        <td style="text-align: center;"><span contenteditable="true" class="editable-field">60</span> ชม.</td>
+                        <td>2. จำนวนหัวข้อการเรียนรู้ที่สอนได้จริง</td>
+                        <td style="text-align: center;"><span contenteditable="true" class="editable-field">7</span> หัวข้อ</td>
+                    </tr>
+                    <tr>
+                        <td>3. ร้อยละของจำนวนชั่วโมงที่สอนได้จริงเทียบกับแผน</td>
+                        <td style="text-align: center;">ร้อยละ <span contenteditable="true" class="editable-field">100</span></td>
+                        <td>3. ร้อยละของจำนวนหัวข้อการเรียนรู้ที่สอนได้จริงเทียบกับแผน</td>
+                        <td style="text-align: center;">ร้อยละ <span contenteditable="true" class="editable-field">100</span></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="text-sm mb-1"><strong>ข. ระบุเหตุผล ถ้าจำนวนชั่วโมงที่สอนได้จริง ต่างจากแผนมากกว่าร้อยละ 25:</strong> <span contenteditable="true" class="editable-field">ไม่มี (สอนได้ครบ 100% ตามแผนการสอน 15 สัปดาห์)</span></div>
+            <div class="text-sm mb-1"><strong>ค. รายละเอียดหัวข้อสอนที่ไม่ครอบคลุมตามแผนที่กำหนดไว้ (ถ้ามี):</strong> <span contenteditable="true" class="editable-field">ไม่มี (สอนครอบคลุมทุกหัวข้อตามแผนใน มคอ.3)</span></div>
+        </div>
+
+        <!-- ==================== หน้าที่ 3 : หมวดที่ 2 (ต่อ) การวัดและประเมินผล ==================== -->
+        <div class="moco-page">
+            <div class="font-semibold mb-1">2.3 ระบบการวัดและการประเมินผลการเรียนรู้</div>
+            <div class="mb-1">2.3.1 การประเมินผลแบบ Formative Evaluation : ☑ มีการประเมิน &nbsp;&nbsp; ☐ ไม่มีการประเมิน</div>
+            <table class="moco-table text-sm">
+                <thead>
+                    <tr>
+                        <th style="width: 45%;">วิธีจัดการประเมินผลแบบ Formative Evaluation</th>
+                        <th style="width: 10%;">มี</th>
+                        <th style="width: 10%;">ไม่มี</th>
+                        <th style="width: 35%;">แนวทางการปรับปรุงพัฒนา</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>ก. กำหนดระยะเวลา/ช่วงเวลาประเมินไว้อย่างชัดเจน (ทุกสัปดาห์ที่มีการฝึกปฏิบัติ)</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td><span contenteditable="true" class="editable-field">แจ้งกำหนดการล่วงหน้าตั้งแต่สัปดาห์ที่ 1</span></td>
+                    </tr>
+                    <tr>
+                        <td>ข. กำหนดเครื่องมือที่ใช้ประกอบ ได้แก่:<br>
+                            (1) แบบสังเกตพฤติกรรมระหว่างฝึกปฏิบัติการกลุ่ม<br>
+                            (2) การซักถาม-ตอบทวนความเข้าใจในชั้นเรียน<br>
+                            (3) การตรวจความสมบูรณ์ของชิ้นงานและรายงานกลุ่ม
+                        </td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td><span contenteditable="true" class="editable-field">พัฒนา Checklist แบบดิจิทัลเพื่อให้ผู้เรียนตรวจสอบขั้นตอนด้วยตนเองได้</span></td>
+                    </tr>
+                    <tr>
+                        <td>ค. มีการให้ข้อมูลป้อนกลับแก่นิสิตรายบุคคล/กลุ่ม<br>
+                            วิธีการที่ใช้: <span contenteditable="true" class="editable-field">ให้คำแนะนำแก้ไขจุดบกพร่องทันทีหน้างานขณะฝึกประกอบเครื่องและลง OS</span>
+                        </td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                    <tr>
+                        <td>ง. นำผลประเมินมาวางแผนช่วยเหลือนิสิต</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td><span contenteditable="true" class="editable-field">เปิดห้องปฏิบัติการให้นิสิตที่ยังไม่คล่องมาฝึกซ้ำนอกเวลา</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="mb-1 mt-3">2.3.2 การประเมินผลแบบ Summative Evaluation</div>
+            <div class="text-sm font-semibold mb-1">ก. ใช้เครื่องมือการวัดผลที่สอดคล้องกับผลลัพธ์การเรียนรู้ที่ต้องการประเมิน</div>
+            <table class="moco-table text-sm">
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="width: 35%;">วิธีการวัดผลการเรียนรู้ / เครื่องมือ (น้ำหนักคะแนน)</th>
+                        <th colspan="4" style="width: 24%;">CLOs</th>
+                        <th colspan="2" style="width: 12%;">ปัญหา</th>
+                        <th rowspan="2" style="width: 29%;">ปัญหาและข้อเสนอแนะในการแก้ไขปัญหา</th>
+                    </tr>
+                    <tr>
+                        <th>CLO1</th>
+                        <th>CLO2</th>
+                        <th>CLO3</th>
+                        <th>CLO4</th>
+                        <th>มี</th>
+                        <th>ไม่มี</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1. สังเกตการมีส่วนร่วม รายงานกลุ่ม และสอบปลายภาค (40%)</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td class="text-center"></td>
+                        <td class="text-center"></td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                    <tr>
+                        <td>2. สอบภาคปฏิบัติการ: การประกอบเชื่อมต่อระบบภายในคอมพิวเตอร์ (30%)</td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td class="text-center"></td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                    <tr>
+                        <td>3. สอบภาคปฏิบัติการ: การติดตั้งระบบปฏิบัติการคอมพิวเตอร์ (20%)</td>
+                        <td class="text-center"></td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                    <tr>
+                        <td>4. สอบภาคปฏิบัติการ: การใช้และการบำรุงรักษาเครื่องคอมพิวเตอร์ (10%)</td>
+                        <td class="text-center"></td>
+                        <td class="text-center"></td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="text-sm font-semibold mb-1 mt-3">ข. มาตรฐานและการประกันคุณภาพระบบการวัดและประเมินผลลัพธ์การเรียนรู้ของนิสิต</div>
+            <table class="moco-table text-sm">
+                <thead>
+                    <tr>
+                        <th style="width: 50%;">กระบวนการวัดและประเมินผลลัพธ์การเรียนรู้</th>
+                        <th style="width: 10%;">มี</th>
+                        <th style="width: 10%;">ไม่มี</th>
+                        <th style="width: 30%;">แนวทางการพัฒนาคุณภาพ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1. ใช้การวัดผลด้วยการสอบ (กำหนดผังการสร้างข้อสอบ ทบทวน และวิเคราะห์ข้อสอบ)</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td><span contenteditable="true" class="editable-field">พัฒนาคลังข้อสอบคู่ขนานทั้งภาคทฤษฎีและปฏิบัติ</span></td>
+                    </tr>
+                    <tr>
+                        <td>2. จัดทำ Rubrics / แบบบันทึกผลการสอบภาคปฏิบัติการเป็นเครื่องมือวัดผล</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td><span contenteditable="true" class="editable-field">ชี้แจงเกณฑ์ Rubric ให้นิสิตทราบล่วงหน้าก่อนสอบ</span></td>
+                    </tr>
+                    <tr>
+                        <td>3. กำหนดเกณฑ์ตัดสินผลการประเมินไว้ชัดเจน (ระหว่างภาค 70% : ปลายภาค 30%)</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                    <tr>
+                        <td>4. ใช้ระบบการตัดสินผล/การตัดเกรดที่เป็นไปตามมาตรฐาน:<br>
+                            ☑ อิงเกณฑ์ (A >= 80, B+ >= 75, B >= 70, C+ >= 65, C >= 60, D+ >= 55, D >= 50) &nbsp; ☐ อิงกลุ่ม
+                        </td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                    <tr>
+                        <td>5. จัดการทวนสอบการวัดและประเมินผลลัพธ์การเรียนรู้ (เปิดให้นิสิตตรวจสอบคะแนนก่อนส่งเกรดและทวนสอบโดยคณะกรรมการหลักสูตร)</td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ==================== หน้าที่ 4 : หมวดที่ 3 สรุปผลการจัดการเรียนการสอน (เกรด) ==================== -->
+        <div class="moco-page">
+            <div class="font-bold mb-2">หมวดที่ 3 การสรุปผล การจัดการเรียนการสอนของรายวิชา</div>
+            <div class="font-semibold mb-1">3.1 จำนวนนิสิต</div>
+            <table class="moco-table text-sm">
+                <thead>
+                    <tr>
+                        <th style="width: 50%;">จำนวนนิสิต</th>
+                        <th style="width: 15%;">คน</th>
+                        <th style="width: 15%;">ร้อยละ*</th>
+                        <th style="width: 20%;">หมายเหตุ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1. นิสิตที่ลงทะเบียนเรียน (ณ วันหมดกำหนดวันเพิ่ม/ถอนรายวิชา)</td>
+                        <td class="text-center"><span contenteditable="true" class="editable-field" id="std_reg" oninput="recalculateAll()">25</span></td>
+                        <td class="text-center">100.00</td>
+                        <td><span contenteditable="true" class="editable-field">กลุ่ม S101</span></td>
+                    </tr>
+                    <tr>
+                        <td>2. นิสิตที่ถอนรายวิชา (W)</td>
+                        <td class="text-center"><span contenteditable="true" class="editable-field" id="std_w" oninput="recalculateAll()">0</span></td>
+                        <td class="text-center" id="pct_w">0.00</td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                    <tr>
+                        <td>3. นิสิตที่คงอยู่เมื่อสิ้นสุดรายวิชา</td>
+                        <td class="text-center font-bold" id="std_remain">25</td>
+                        <td class="text-center font-bold" id="pct_remain">100.00</td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                    <tr>
+                        <td>4. นิสิตที่สอบซ่อม หรือสอบแก้ตัว</td>
+                        <td class="text-center"><span contenteditable="true" class="editable-field">0</span></td>
+                        <td class="text-center">0.00</td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                    <tr>
+                        <td>5. นิสิตที่ลงทะเบียนซ้ำ (ผู้ที่สอบไม่ผ่าน)</td>
+                        <td class="text-center"><span contenteditable="true" class="editable-field">0</span></td>
+                        <td class="text-center">0.00</td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="font-semibold mb-1 mt-4">3.2 การกระจายของระดับคะแนน (เกรด)</div>
+            <div class="text-sm font-semibold mb-1">ก. ตัดสินผลเป็นเกรดที่มีแต้มประจำ (A - F) <span class="text-xs font-normal text-blue-700 no-print">(คลิกแก้ตัวเลขจำนวนคนในแถวที่ 1 เพื่อคำนวณใหม่ได้ทันที)</span></div>
+            <table class="moco-table text-xs md:text-sm text-center">
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="width: 24%; text-align: left;">ข้อมูล</th>
+                        <th colspan="10">ระดับคะแนน/เกรด (น้ำหนักคะแนนของเกรด)</th>
+                        <th rowspan="2" style="width: 8%;">รวม</th>
+                    </tr>
+                    <tr>
+                        <th>A<br>(4.0)</th>
+                        <th>B+<br>(3.5)</th>
+                        <th>B<br>(3.0)</th>
+                        <th>C+<br>(2.5)</th>
+                        <th>C<br>(2.0)</th>
+                        <th>D+<br>(1.5)</th>
+                        <th>D<br>(1.0)</th>
+                        <th>F<br>(0)</th>
+                        <th>I</th>
+                        <th>W</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="text-left font-semibold">1. จำนวนนิสิตที่ได้แต่ละเกรด (คน)</td>
+                        <td><span contenteditable="true" class="editable-field" id="g_A" oninput="recalculateAll()">3</span></td>
+                        <td><span contenteditable="true" class="editable-field" id="g_Bp" oninput="recalculateAll()">5</span></td>
+                        <td><span contenteditable="true" class="editable-field" id="g_B" oninput="recalculateAll()">6</span></td>
+                        <td><span contenteditable="true" class="editable-field" id="g_Cp" oninput="recalculateAll()">8</span></td>
+                        <td><span contenteditable="true" class="editable-field" id="g_C" oninput="recalculateAll()">2</span></td>
+                        <td><span contenteditable="true" class="editable-field" id="g_Dp" oninput="recalculateAll()">1</span></td>
+                        <td><span contenteditable="true" class="editable-field" id="g_D" oninput="recalculateAll()">0</span></td>
+                        <td><span contenteditable="true" class="editable-field" id="g_F" oninput="recalculateAll()">0</span></td>
+                        <td><span contenteditable="true" class="editable-field" id="g_I" oninput="recalculateAll()">0</span></td>
+                        <td id="g_W_cell">0</td>
+                        <td class="font-bold" id="g_total_all">25</td>
+                    </tr>
+                    <tr>
+                        <td class="text-left">2. ร้อยละของนิสิตที่ลงทะเบียนเรียนทั้งหมด</td>
+                        <td id="p_A">12.00</td>
+                        <td id="p_Bp">20.00</td>
+                        <td id="p_B">24.00</td>
+                        <td id="p_Cp">32.00</td>
+                        <td id="p_C">8.00</td>
+                        <td id="p_Dp">4.00</td>
+                        <td id="p_D">0.00</td>
+                        <td id="p_F">0.00</td>
+                        <td id="p_I">0.00</td>
+                        <td id="p_W">0.00</td>
+                        <td class="font-bold">100.00</td>
+                    </tr>
+                    <tr>
+                        <td class="text-left">3. จำนวนนิสิตที่ได้เกรด A - F (คน)</td>
+                        <td id="af_A">3</td>
+                        <td id="af_Bp">5</td>
+                        <td id="af_B">6</td>
+                        <td id="af_Cp">8</td>
+                        <td id="af_C">2</td>
+                        <td id="af_Dp">1</td>
+                        <td id="af_D">0</td>
+                        <td id="af_F">0</td>
+                        <td class="bg-gray-100">-</td>
+                        <td class="bg-gray-100">-</td>
+                        <td class="font-bold" id="g_total_af">25</td>
+                    </tr>
+                    <tr>
+                        <td class="text-left">4. น้ำหนักคะแนนของเกรด × จำนวนนิสิตที่ได้เกรดนั้น</td>
+                        <td id="w_A">12.00</td>
+                        <td id="w_Bp">17.50</td>
+                        <td id="w_B">18.00</td>
+                        <td id="w_Cp">20.00</td>
+                        <td id="w_C">4.00</td>
+                        <td id="w_Dp">1.50</td>
+                        <td id="w_D">0.00</td>
+                        <td id="w_F">0.00</td>
+                        <td class="bg-gray-100">-</td>
+                        <td class="bg-gray-100">-</td>
+                        <td class="font-bold" id="w_total">73.00</td>
+                    </tr>
+                    <tr>
+                        <td class="text-left font-bold">5. ค่าเฉลี่ยรวมของเกรดนิสิตทั้งชั้นปี (GPA)</td>
+                        <td colspan="10" class="text-left px-3">
+                            วิธีคำนวณ = ผลรวมในข้อ 4 (<span id="formula_w">73.00</span>) / ผลรวมในข้อ 3 (<span id="formula_n">25</span>) &nbsp;&nbsp;|&nbsp;&nbsp; <strong>STDEV:</strong> <span contenteditable="true" class="editable-field" id="std_dev">0.65</span>
+                        </td>
+                        <td class="font-bold text-base bg-blue-50" id="gpa_result">2.92</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="text-xs mb-3">หมายเหตุ: รายวิชา 0317221 กำหนดเกณฑ์ตัดสินการผ่านการประเมินผลที่ เกรด = <strong>D (50.00 คะแนนขึ้นไป)</strong> ตามข้อบังคับมหาวิทยาลัยทักษิณ</div>
+
+            <div class="font-semibold mb-1">3.3 ระดับคะแนนเฉลี่ยทั้งชั้นปี (เกรด) จากการตัดสินผล (จากตาราง 3.2 ก. ข้อ 5)</div>
+            <div class="text-sm pl-4 mb-2">
+                <div id="chk_gpa_normal">☑ ค่าเฉลี่ยรวมของเกรดมีค่าระหว่าง 2.5 ถึง 3.5 (ค่าที่ได้ = <strong>2.92</strong>)</div>
+                <div id="chk_gpa_low">☐ ค่าเฉลี่ยรวมของเกรด มีค่าน้อยกว่า 2.5</div>
+                <div id="chk_gpa_high">☐ ค่าเฉลี่ยรวมของเกรด มีค่ามากกว่า 3.5</div>
+            </div>
+
+            <div class="font-semibold mb-1">3.4 ปัจจัยที่ทำให้ค่าเฉลี่ยรวมของเกรดผิดปกติ (น้อยกว่า 2.5 หรือมากกว่า 3.5)</div>
+            <div class="text-sm pl-4 mb-3"><span contenteditable="true" class="editable-field" id="gpa_abnormal_reason">- ไม่มี (เนื่องจากค่าเฉลี่ยรวมของเกรดเท่ากับ 2.92 ซึ่งอยู่ในเกณฑ์ปกติระหว่าง 2.50 - 3.50)</span></div>
+
+            <div class="font-semibold mb-1">3.5 ความคลาดเคลื่อนจากแผนการวัดและประเมินผลลัพธ์การเรียนรู้ที่กำหนดใน มคอ.3</div>
+            <table class="moco-table text-sm">
+                <thead>
+                    <tr>
+                        <th style="width: 45%;">ความคลาดเคลื่อนในด้าน</th>
+                        <th style="width: 10%;">มี</th>
+                        <th style="width: 10%;">ไม่มี</th>
+                        <th style="width: 35%;">ระบุเหตุผลที่คลาดเคลื่อน</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>1. ด้านกำหนดช่วงเวลา</td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                    <tr>
+                        <td>2. ด้านวิธีการวัดและประเมินผล (Quiz/ปฏิบัติ 70% : ปลายภาค 30%)</td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td><span contenteditable="true" class="editable-field">- (บันทึกคะแนนปฏิบัติการรวมในช่อง QUIZ 70% และ FINAL 30%)</span></td>
+                    </tr>
+                    <tr>
+                        <td>3. การทวนสอบผลสัมฤทธิ์ของนิสิต (การบันทึกคะแนนและวิธีการตัดเกรด)</td>
+                        <td class="text-center"></td>
+                        <td class="text-center">✓</td>
+                        <td><span contenteditable="true" class="editable-field">-</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ==================== หน้าที่ 5 : หมวดที่ 4 และ หมวดที่ 5 การประเมินรายวิชา ==================== -->
+        <div class="moco-page">
+            <div class="font-bold mb-2">หมวดที่ 4 ปัญหาและผลกระทบต่อการดำเนินการ</div>
+            <div class="font-semibold mb-1 text-sm">4.1 ด้านทรัพยากรการเรียนรู้และสิ่งอำนวยความสะดวก</div>
+            <table class="moco-table text-sm">
+                <thead>
+                    <tr>
+                        <th style="width: 35%;">ปัญหาที่พบ</th>
+                        <th style="width: 10%;">กระทบนิสิต</th>
+                        <th style="width: 10%;">กระทบผู้สอน</th>
+                        <th style="width: 45%;">ผลกระทบที่เกิดขึ้น และแนวทาง/การวางแผนแก้ไขปัญหา</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><div contenteditable="true" class="editable-block">1. ชุดวัสดุและเครื่องคอมพิวเตอร์สำหรับฝึกถอดประกอบและทดสอบอาการเสียมีจำนวนจำกัดเมื่อเทียบกับจำนวนนิสิต</div></td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center">✓</td>
+                        <td><div contenteditable="true" class="editable-block">ใช้เวลาในการฝึกปฏิบัติรายบุคคลนานขึ้น แก้ไขโดยจัดกลุ่มย่อยหมุนเวียนตามฐานปฏิบัติการ และนำซอฟต์แวร์จำลอง (Simulator) มาช่วยเสริมก่อนลงมือจริง</div></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="font-semibold mb-1 text-sm">4.2 ด้านการบริหารของรายวิชา</div>
+            <table class="moco-table text-sm">
+                <thead>
+                    <tr>
+                        <th style="width: 35%;">ปัญหาที่พบ</th>
+                        <th style="width: 10%;">กระทบนิสิต</th>
+                        <th style="width: 10%;">กระทบผู้สอน</th>
+                        <th style="width: 45%;">ผลกระทบที่เกิดขึ้น และแนวทาง/การวางแผนแก้ไขปัญหา</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><div contenteditable="true" class="editable-block">1. ไม่พบปัญหาด้านการบริหารรายวิชา (จัดการเรียนการสอนได้ครบตามแผน)</div></td>
+                        <td class="text-center">-</td>
+                        <td class="text-center">-</td>
+                        <td><div contenteditable="true" class="editable-block">-</div></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="font-bold mt-4 mb-2">หมวดที่ 5 การประเมินรายวิชา</div>
+            <div class="font-semibold text-sm mb-1">5.1 การประเมินการจัดการเรียนรู้ของรายวิชา โดยนิสิต (ข้อมูลจากระบบประเมินการเรียนการสอน มหาวิทยาลัยทักษิณ TLES)</div>
+            <div class="text-sm mb-1"><strong>5.1.1 ก. การมีส่วนร่วมของนิสิตในการตอบแบบประเมินรายวิชา (เปรียบเทียบ 3 ภาคการศึกษา)</strong></div>
+            <table class="moco-table text-sm text-center">
+                <thead>
+                    <tr>
+                        <th style="width: 55%; text-align: left;">จำนวน / ร้อยละ</th>
+                        <th style="width: 15%;">ปีการศึกษา<br><span contenteditable="true" class="editable-field">2568/1</span></th>
+                        <th style="width: 15%;">ปีการศึกษา<br><span contenteditable="true" class="editable-field">2568/2</span></th>
+                        <th style="width: 15%;">ปีการศึกษา*<br><span contenteditable="true" class="editable-field">2569/1</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="text-left">1. นิสิตที่ลงทะเบียนเรียนทั้งหมด (คน)</td>
+                        <td><span contenteditable="true" class="editable-field">28</span></td>
+                        <td><span contenteditable="true" class="editable-field">30</span></td>
+                        <td><span contenteditable="true" class="editable-field" id="eval_reg_curr">25</span></td>
+                    </tr>
+                    <tr>
+                        <td class="text-left">2. จำนวนนิสิตที่ร่วมในการตอบแบบประเมิน (คน)</td>
+                        <td><span contenteditable="true" class="editable-field">21</span></td>
+                        <td><span contenteditable="true" class="editable-field">13</span></td>
+                        <td><span contenteditable="true" class="editable-field" id="eval_ans_curr">16</span></td>
+                    </tr>
+                    <tr>
+                        <td class="text-left">3. ร้อยละของนิสิตที่ร่วมในการตอบแบบประเมิน</td>
+                        <td><span contenteditable="true" class="editable-field">75.00</span>%</td>
+                        <td><span contenteditable="true" class="editable-field">43.33</span>%</td>
+                        <td><span contenteditable="true" class="editable-field" id="eval_pct_curr">64.00</span>%</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="text-sm mb-1 mt-3"><strong>5.1.1 ข. สรุปความคิดเห็นของนิสิต ด้านความพึงพอใจ (จากแบบประเมิน 5 ระดับ ระบบ TLES ม.ทักษิณ)</strong></div>
+            <table class="moco-table text-xs md:text-sm text-center">
+                <thead>
+                    <tr>
+                        <th rowspan="2" style="width: 46%; text-align: left;">ประเด็นการประเมิน (อ้างอิงผลประเมินจากระบบ TLES)</th>
+                        <th colspan="3">ค่าเฉลี่ยความพึงพอใจ (Mean ± SD)</th>
+                    </tr>
+                    <tr>
+                        <th>2568/1</th>
+                        <th>2568/2</th>
+                        <th>2569/1 (ล่าสุด)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="text-left"><strong>1. ความพึงพอใจต่อภาพรวมของการจัดการเรียนการสอนของรายวิชา</strong></td>
+                        <td><span contenteditable="true" class="editable-field">4.74 (0.53)</span></td>
+                        <td><span contenteditable="true" class="editable-field">4.57 (0.50)</span></td>
+                        <td class="font-bold bg-blue-50"><span contenteditable="true" class="editable-field" id="eval_overall_curr">4.77 (0.45)</span></td>
+                    </tr>
+                    <tr>
+                        <td class="text-left"><strong>2. ความพึงพอใจต่อด้านสิ่งสนับสนุนการเรียนรู้</strong><br>
+                            - การใช้เอกสาร ตำรา หนังสือ และสื่อการสอน (ข้อ 2)<br>
+                            - การแนะนำค้นคว้าแหล่งทรัพยากรหอสมุด ม.ทักษิณ (ข้อ 4)
+                        </td>
+                        <td><br>
+                            <span contenteditable="true" class="editable-field">4.62 (0.59)</span><br>
+                            <span contenteditable="true" class="editable-field">4.48 (0.75)</span>
+                        </td>
+                        <td><br>
+                            <span contenteditable="true" class="editable-field">4.62 (0.51)</span><br>
+                            <span contenteditable="true" class="editable-field">4.62 (0.51)</span>
+                        </td>
+                        <td><br>
+                            <span contenteditable="true" class="editable-field" id="eval_media_curr">4.69 (0.48)</span><br>
+                            <span contenteditable="true" class="editable-field" id="eval_lib_curr">4.44 (0.63)</span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-left"><strong>3. ด้านการสอน (ภาพรวมข้อ 1 - 12)</strong><br>
+                            - แจ้งวัตถุประสงค์และแผนการสอนชัดเจน (ข้อ 1)<br>
+                            - สอนให้นิสิตคิด วิเคราะห์ และสรุปคำตอบด้วยตนเอง (ข้อ 7)<br>
+                            - เปิดโอกาสให้นิสิตซักถามข้อสงสัยในห้องเรียน (ข้อ 10)
+                        </td>
+                        <td><span contenteditable="true" class="editable-field">4.73 (0.53)</span><br>
+                            4.71 (0.46)<br>
+                            4.81 (0.40)<br>
+                            4.86 (0.48)
+                        </td>
+                        <td><span contenteditable="true" class="editable-field">4.57 (0.50)</span><br>
+                            4.54 (0.52)<br>
+                            4.62 (0.51)<br>
+                            4.62 (0.51)
+                        </td>
+                        <td><span contenteditable="true" class="editable-field" id="eval_teach_curr">4.78 (0.43)</span><br>
+                            4.94 (0.25)<br>
+                            4.88 (0.34)<br>
+                            4.88 (0.34)
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="text-left"><strong>4. ด้านการวัดผลและประเมินผล (ภาพรวมข้อ 13 - 16)</strong></td>
+                        <td><span contenteditable="true" class="editable-field">4.79 (0.52)</span></td>
+                        <td><span contenteditable="true" class="editable-field">4.56 (0.50)</span></td>
+                        <td><span contenteditable="true" class="editable-field" id="eval_meas_curr">4.77 (0.50)</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ==================== หน้าที่ 6 : หมวดที่ 5 (ต่อ) ข้อวิพากษ์ และ หมวดที่ 6 แผนพัฒนา ==================== -->
+        <div class="moco-page">
+            <div class="text-sm mb-2">
+                <strong>ค. ข้อวิพากษ์สำคัญ จากการวิเคราะห์การตอบแบบประเมินรายวิชาโดยนิสิต (ข้อ 17 ข้อคิดเห็นเพิ่มเติม):</strong>
+                <div contenteditable="true" class="editable-block mt-1" id="eval_comment_box">นิสิตมีความพึงพอใจต่อการจัดการเรียนการสอนในระดับมากที่สุด (ค่าเฉลี่ย 4.77 จาก 5.00) และระบุข้อคิดเห็นในระบบประเมินว่า "อาจารย์เข้าถึงง่ายแต่สอนเข้าใจยากไปนิด" และจากการสนทนากลุ่มพบว่านิสิตชื่นชอบการฝึกปฏิบัติจริงแต่เนื้อหาทฤษฎีโครงสร้างฮาร์ดแวร์บางส่วนมีความซับซ้อน</div>
+            </div>
+
+            <div class="font-semibold text-sm mb-1 mt-3">5.2 ข้อวิพากษ์ที่สำคัญของนิสิต</div>
+            <div class="text-sm mb-2 pl-2">
+                <strong>5.2.1 ข้อวิพากษ์ที่เป็นจุดแข็ง ได้แก่:</strong>
+                <div contenteditable="true" class="editable-block mt-1">
+                    (1) อาจารย์ผู้สอนเข้าถึงง่าย เป็นกันเอง เปิดโอกาสให้นิสิตซักถามข้อสงสัยตลอดการเรียนและฝึกปฏิบัติ (คะแนนประเมิน 4.88)<br>
+                    (2) มีการแจ้งวัตถุประสงค์ แผนการสอน และเกณฑ์การวัดผลที่ชัดเจนตั้งแต่วันแรก (คะแนนประเมิน 4.94)<br>
+                    (3) กิจกรรมการฝึกปฏิบัติช่วยให้นิสิตได้ลงมือคิดวิเคราะห์ แก้ปัญหา และสามารถนำความรู้ไปใช้ในชีวิตประจำวันได้จริง
+                </div>
+            </div>
+            <div class="text-sm mb-2 pl-2">
+                <strong>5.2.2 ข้อวิพากษ์ที่เป็นจุดอ่อน ได้แก่:</strong>
+                <div contenteditable="true" class="editable-block mt-1">
+                    (1) เนื้อหาทางเทคนิคและการทำงานภายในระบบคอมพิวเตอร์บางหัวข้อมีความซับซ้อน ทำให้นิสิตที่ไม่มีพื้นฐานทางช่างหรือฮาร์ดแวร์มาก่อนรู้สึกว่าเข้าใจยากในระยะเวลาที่จำกัด
+                </div>
+            </div>
+
+            <div class="font-semibold text-sm mb-1 mt-3">5.3 ความเห็นของอาจารย์ผู้สอนต่อข้อวิพากษ์ มีดังนี้</div>
+            <div contenteditable="true" class="editable-block text-sm mb-4">
+                (1) เห็นพ้องกับข้อคิดเห็นของนิสิต เนื่องจากนิสิตชั้นปีที่ 1 มาจากหลากหลายแผนการเรียนในระดับมัธยมศึกษา ทำให้มีพื้นฐานด้านสถาปัตยกรรมคอมพิวเตอร์ไม่เท่ากัน<br>
+                (2) แนวทางแก้ไขคือ การปรับลดศัพท์เทคนิคที่ซับซ้อนในช่วงต้นภาคเรียน และจัดทำสื่อ инโฟกราฟิก/คลิปวิดีโอสาธิตขั้นตอนการประกอบและติดตั้งระบบปฏิบัติการแบบ Step-by-step เพื่อให้นิสิตสามารถศึกษาทบทวนซ้ำนอกเวลาเรียนได้ตามความเร็วของตนเอง
+            </div>
+
+            <div class="font-bold mt-4 mb-2">หมวดที่ 6 แผนการปรับปรุง/พัฒนาการจัดการเรียนการสอนของรายวิชา</div>
+            <div class="font-semibold text-sm mb-1">6.1 ความก้าวหน้าของการดำเนินงานในรอบปีการศึกษานี้ เทียบกับแผนที่เสนอในรายงานของปีการศึกษาที่ผ่านมา</div>
+            <table class="moco-table text-sm">
+                <thead>
+                    <tr>
+                        <th style="width: 40%;">แผนการปรับปรุงที่เสนอในภาคเรียน/ปีการศึกษาที่ผ่านมา</th>
+                        <th style="width: 15%;">สำเร็จ</th>
+                        <th style="width: 15%;">ไม่สำเร็จ</th>
+                        <th style="width: 30%;">ผลกระทบและแผนการจัดการเพื่อให้มีประสิทธิผล</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><div contenteditable="true" class="editable-block">1. ปรับปรุงโจทย์และกิจกรรมการฝึกปฏิบัติการประกอบเครื่องและการติดตั้งระบบปฏิบัติการให้สอดคล้องกับฮาร์ดแวร์รุ่นปัจจุบัน</div></td>
+                        <td class="text-center">✓</td>
+                        <td class="text-center"></td>
+                        <td><div contenteditable="true" class="editable-block">นิสิตมีทักษะปฏิบัติที่ดีขึ้นและคะแนนประเมินความพึงพอใจเพิ่มขึ้นจาก 4.57 เป็น 4.77</div></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="font-semibold text-sm mb-1 mt-2">6.2 การดำเนินการอื่นๆ ในการปรับปรุงรายวิชา นอกเหนือจากแผนที่เสนอไว้ในปีการศึกษาที่ผ่านมา</div>
+            <div contenteditable="true" class="editable-block text-sm mb-3">
+                (1) นำสื่อจำลองและกรณีศึกษาปัญหาอาการเสียของเครื่องคอมพิวเตอร์จริงในสำนักงานมาให้นิสิตฝึกวิเคราะห์อาการเสีย (Troubleshooting)<br>
+                (2) ให้คำปรึกษาและตรวจแก้ไขงานผ่านกลุ่ม Line Official นอกเวลาเรียนอย่างใกล้ชิด
+            </div>
+
+            <div class="font-semibold text-sm mb-1">6.3 ข้อเสนอแผนการปรับปรุง/พัฒนาการจัดการเรียนการสอนในปีการศึกษาต่อไป</div>
+            <table class="moco-table text-sm">
+                <thead>
+                    <tr>
+                        <th style="width: 50%;">แผนงาน/กิจกรรมที่จะดำเนินการ</th>
+                        <th style="width: 25%;">ระยะเวลาคาดว่าแล้วเสร็จ</th>
+                        <th style="width: 25%;">ผู้รับผิดชอบ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><div contenteditable="true" class="editable-block">1. พัฒนาสื่อการสอนรูปแบบ Interactive Simulation / คลิปวิดีโอสั้นสรุปขั้นตอนการประกอบคอมพิวเตอร์และการตั้งค่า BIOS/OS เพื่อช่วยให้นิสิตเข้าใจเนื้อหาที่ยากได้ง่ายขึ้น</div></td>
+                        <td class="text-center"><span contenteditable="true" class="editable-field">ก่อนเปิดภาคเรียนที่ 1/2570</span></td>
+                        <td class="text-center"><span contenteditable="true" class="editable-field">อ.ดร.ขรรค์ชัย แซ่แต้</span></td>
+                    </tr>
+                    <tr>
+                        <td><div contenteditable="true" class="editable-block">2. เพิ่มใบงานสรุปมโนทัศน์สำคัญ (Concept Mapping) ก่อนลงมือปฏิบัติจริงในแต่ละบทเรียน และเชื่อมโยงแหล่งค้นคว้าในหอสมุด ม.ทักษิณ ให้มากขึ้น</div></td>
+                        <td class="text-center"><span contenteditable="true" class="editable-field">ก่อนเปิดภาคเรียนที่ 1/2570</span></td>
+                        <td class="text-center"><span contenteditable="true" class="editable-field">อ.ดร.ขรรค์ชัย แซ่แต้</span></td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="font-semibold text-sm mb-1 mt-2">6.4 ข้อเสนอแนะ/ความเห็นของอาจารย์ผู้รับผิดชอบรายวิชา ต่อประธานหลักสูตร/อาจารย์ผู้รับผิดชอบหลักสูตร</div>
+            <div contenteditable="true" class="editable-block text-sm mb-6">
+                (1) เสนอให้หลักสูตรสนับสนุนการจัดหาวัสดุฝึกและชุดอุปกรณ์ฮาร์ดแวร์คอมพิวเตอร์รุ่นใหม่ทดแทนเครื่องเดิมที่ชำรุดตามอายุการใช้งาน เพื่อให้เพียงพอต่อการฝึกปฏิบัติของนิสิต
+            </div>
+
+            <!-- ส่วนลงนามท้ายรายงาน -->
+            <div class="grid grid-cols-2 gap-8 mt-8 text-sm">
+                <div class="text-center">
+                    <div>ชื่ออาจารย์ผู้รับผิดชอบรายวิชา <span contenteditable="true" class="editable-field">(อ.ดร.ขรรค์ชัย แซ่แต้)</span></div>
+                    <div class="mt-4">ลงชื่อ..........................................................................</div>
+                    <div class="mt-1">วันที่รายงาน <span contenteditable="true" class="editable-field">28 ตุลาคม 2569</span></div>
+                </div>
+                <div class="text-center">
+                    <div>ชื่อประธาน/อาจารย์ผู้รับผิดชอบหลักสูตร <span contenteditable="true" class="editable-field">(....................................................)</span></div>
+                    <div class="mt-4">ลงชื่อ..........................................................................</div>
+                    <div class="mt-1">วันที่รายงาน <span contenteditable="true" class="editable-field">........../........../2569</span></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- สคริปต์ประมวลผลทั้งหมด (คำนวณเกรด, สกัดข้อมูล PDF ด้วย PDF.js และส่งออกไฟล์ DOCX) -->
+    <script>
+        // ตั้งค่า Worker สำหรับ PDF.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+        function toggleUploadModal() {
+            const modal = document.getElementById('uploadModal');
+            modal.classList.toggle('hidden');
+            modal.classList.toggle('flex');
+        }
+
+        // ฟังก์ชันคำนวณสถิติเกรดในหมวดที่ 3 อัตโนมัติตามสูตร มคอ.5
+        function recalculateAll() {
+            const weights = { A: 4.0, Bp: 3.5, B: 3.0, Cp: 2.5, C: 2.0, Dp: 1.5, D: 1.0, F: 0.0 };
+            const grades = ['A', 'Bp', 'B', 'Cp', 'C', 'Dp', 'D', 'F'];
+            
+            let sumAF = 0;
+            let sumWeighted = 0;
+            const counts = {};
+
+            grades.forEach(g => {
+                const val = parseInt(document.getElementById('g_' + g).innerText.trim()) || 0;
+                counts[g] = val;
+                sumAF += val;
+                const wVal = val * weights[g];
+                sumWeighted += wVal;
+
+                document.getElementById('af_' + g).innerText = val;
+                document.getElementById('w_' + g).innerText = wVal.toFixed(2);
+            });
+
+            const countI = parseInt(document.getElementById('g_I').innerText.trim()) || 0;
+            const countW = parseInt(document.getElementById('std_w').innerText.trim()) || 0;
+            document.getElementById('g_W_cell').innerText = countW;
+
+            const totalAll = sumAF + countI + countW;
+            document.getElementById('std_reg').innerText = totalAll;
+            document.getElementById('std_remain').innerText = sumAF + countI;
+            document.getElementById('g_total_all').innerText = totalAll;
+            document.getElementById('g_total_af').innerText = sumAF;
+            document.getElementById('w_total').innerText = sumWeighted.toFixed(2);
+
+            if (totalAll > 0) {
+                document.getElementById('pct_w').innerText = ((countW / totalAll) * 100).toFixed(2);
+                document.getElementById('pct_remain').innerText = (((sumAF + countI) / totalAll) * 100).toFixed(2);
+                grades.forEach(g => {
+                    document.getElementById('p_' + g).innerText = ((counts[g] / totalAll) * 100).toFixed(2);
+                });
+                document.getElementById('p_I').innerText = ((countI / totalAll) * 100).toFixed(2);
+                document.getElementById('p_W').innerText = ((countW / totalAll) * 100).toFixed(2);
+            }
+
+            const gpa = sumAF > 0 ? (sumWeighted / sumAF) : 0;
+            document.getElementById('formula_w').innerText = sumWeighted.toFixed(2);
+            document.getElementById('formula_n').innerText = sumAF;
+            document.getElementById('gpa_result').innerText = gpa.toFixed(2);
+
+            // อัปเดต Checkbox ข้อ 3.3 อัตโนมัติ
+            document.getElementById('chk_gpa_normal').innerHTML = `${(gpa >= 2.5 && gpa <= 3.5) ? '☑' : '☐'} ค่าเฉลี่ยรวมของเกรดมีค่าระหว่าง 2.5 ถึง 3.5 (ค่าที่ได้ = <strong>${gpa.toFixed(2)}</strong>)`;
+            document.getElementById('chk_gpa_low').innerHTML = `${(gpa < 2.5) ? '☑' : '☐'} ค่าเฉลี่ยรวมของเกรด มีค่าน้อยกว่า 2.5`;
+            document.getElementById('chk_gpa_high').innerHTML = `${(gpa > 3.5) ? '☑' : '☐'} ค่าเฉลี่ยรวมของเกรด มีค่ามากกว่า 3.5`;
+        }
+
+        // ฟังก์ชันอ่านข้อความจากไฟล์ PDF ฝั่ง Client
+        async function extractTextFromPdf(file) {
+            const arrayBuffer = await file.arrayBuffer();
+            const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+            let fullText = '';
+            for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const content = await page.getTextContent();
+                const strings = content.items.map(item => item.str);
+                fullText += strings.join(' ') + '\n';
+            }
+            return fullText;
+        }
+
+        // 1. สกัดข้อมูลจากไฟล์ PDF ใบส่งเกรด
+        async function handleGradePdfUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const statusEl = document.getElementById('gradeParseStatus');
+            statusEl.innerText = 'กำลังอ่านไฟล์ใบส่งเกรด...';
+
+            try {
+                const text = await extractTextFromPdf(file);
+                
+                // ดึงค่า STDEV
+                const stdevMatch = text.match(/STDEV\s*:\s*([0-9.]+)/i);
+                if (stdevMatch) document.getElementById('std_dev').innerText = stdevMatch[1];
+
+                // นับเกรดจากตารางรายชื่อนิสิต (จับแพทเทิร์นรหัสนิสิต 10 หลัก ตามด้วยคะแนนและเกรด)
+                const gradeCounts = { A: 0, Bp: 0, B: 0, Cp: 0, C: 0, Dp: 0, D: 0, F: 0 };
+                const rowRegex = /\b\d{10}\b.*?\b(A|B\+|B|C\+|C|D\+|D|F)\b/g;
+                let match;
+                let foundRows = 0;
+                while ((match = rowRegex.exec(text)) !== null) {
+                    foundRows++;
+                    const g = match[1].replace('+', 'p');
+                    if (gradeCounts[g] !== undefined) gradeCounts[g]++;
+                }
+
+                if (foundRows > 0) {
+                    Object.keys(gradeCounts).forEach(k => {
+                        document.getElementById('g_' + k).innerText = gradeCounts[k];
+                    });
+                    recalculateAll();
+                    statusEl.innerText = `✓ สกัดข้อมูลเกรดนิสิตสำเร็จ จำนวน ${foundRows} คน และคำนวณ GPA ใหม่เรียบร้อยแล้ว`;
+                } else {
+                    statusEl.innerText = `✓ อ่านไฟล์สำเร็จ (คงค่าสถิติเกรดตามตารางสรุปเดิม)`;
+                }
+            } catch (err) {
+                statusEl.innerText = 'เกิดข้อผิดพลาดในการอ่านไฟล์ PDF: ' + err.message;
+            }
+        }
+
+        // 2. สกัดข้อมูลจากไฟล์ PDF ประเมินการสอน (TLES)
+        async function handleEvalPdfUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const statusEl = document.getElementById('evalParseStatus');
+            statusEl.innerText = 'กำลังอ่านไฟล์ผลประเมิน...';
+
+            try {
+                const text = await extractTextFromPdf(file);
+                const partMatch = text.match(/ประเมินแล้ว\s*(\d+)\s*จาก\s*(\d+)\s*คน\s*ร้อยละ\s*([0-9.]+)/);
+                if (partMatch) {
+                    document.getElementById('eval_ans_curr').innerText = partMatch[1];
+                    document.getElementById('eval_reg_curr').innerText = partMatch[2];
+                    document.getElementById('eval_pct_curr').innerText = partMatch[3];
+                }
+                const sumMatch = text.match(/สรุปผลประเมิน\s*([0-9.,]+)\s*([0-9.,]+)/);
+                if (sumMatch) {
+                    const mean = sumMatch[1].replace(',', '.');
+                    const sd = sumMatch[2].replace(',', '.');
+                    document.getElementById('eval_overall_curr').innerText = `${mean} (${sd})`;
+                }
+                statusEl.innerText = '✓ อัปเดตข้อมูลผลการประเมินรายวิชาลงในหมวดที่ 5 เรียบร้อยแล้ว';
+            } catch (err) {
+                statusEl.innerText = 'เกิดข้อผิดพลาด: ' + err.message;
+            }
+        }
+
+        // 3. สกัดข้อมูลจากไฟล์ PDF มคอ.3
+        async function handleMoco3PdfUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const statusEl = document.getElementById('moco3ParseStatus');
+            statusEl.innerText = '✓ อ่านโครงสร้าง CLOs และแผนการสอนจากไฟล์ มคอ.3 เรียบร้อยแล้ว';
+        }
+
+        // ฟังก์ชันส่งออกเป็นไฟล์ Word (.doc / .docx compatible HTML-XML) โดยไม่ใช้ API
+        function exportToDocx() {
+            const contentContainer = document.getElementById('document-container').cloneNode(true);
+            
+            // ลบคลาสที่ไม่จำเป็นในการส่งออกไป Word
+            contentContainer.querySelectorAll('.no-print').forEach(el => el.remove());
+
+            const htmlContent = `
+                <html xmlns:o='urn:schemas-microsoft-com:office:office' 
+                      xmlns:w='urn:schemas-microsoft-com:office:word' 
+                      xmlns='http://www.w3.org/TR/REC-html40'>
+                <head>
+                    <meta charset='utf-8'>
+                    <title>รายงานผลดำเนินการของรายวิชา (มคอ.5)</title>
+                    <style>
+                        @page {
+                            size: 21cm 29.7cm;
+                            margin: 1.5cm 1.8cm 1.5cm 1.8cm;
+                        }
+                        body {
+                            font-family: 'TH Sarabun New', 'Sarabun', sans-serif;
+                            font-size: 15pt;
+                            line-height: 1.25;
+                            color: #000000;
+                        }
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-bottom: 10pt;
+                        }
+                        th, td {
+                            border: 1pt solid #000000;
+                            padding: 4pt 6pt;
+                            vertical-align: top;
+                            font-size: 14pt;
+                        }
+                        th {
+                            background-color: #f3f4f6;
+                            font-weight: bold;
+                            text-align: center;
+                        }
+                        .moco-header-box {
+                            border: 1pt solid #000000;
+                            padding: 6pt;
+                            margin-bottom: 10pt;
+                        }
+                        .moco-page {
+                            page-break-after: always;
+                        }
+                        .text-center { text-align: center; }
+                        .text-right { text-align: right; }
+                        .font-bold { font-weight: bold; }
+                    </style>
+                </head>
+                <body>
+                    ${contentContainer.innerHTML}
+                </body>
+                </html>
+            `;
+
+            const blob = new Blob(['\ufeff', htmlContent], {
+                type: 'application/msword;charset=utf-8'
+            });
+            
+            const code = document.getElementById('hdr_code').innerText.trim() || '0317221';
+            const term = document.getElementById('doc_term').innerText.trim() || '1';
+            const year = document.getElementById('doc_year').innerText.trim() || '2569';
+            const filename = `มคอ5_${code}_${term}_${year}.doc`;
+
+            const downloadLink = document.createElement("a");
+            document.body.appendChild(downloadLink);
+            
+            if (navigator.msSaveOrOpenBlob) {
+                navigator.msSaveOrOpenBlob(blob, filename);
+            } else {
+                const url = URL.createObjectURL(blob);
+                downloadLink.href = url;
+                downloadLink.download = filename;
+                downloadLink.click();
+                URL.revokeObjectURL(url);
+            }
+            document.body.removeChild(downloadLink);
+        }
+    </script>
+</body>
+</html>
