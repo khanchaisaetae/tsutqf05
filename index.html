@@ -113,7 +113,7 @@
             <div class="flex items-center space-x-3">
                 <div class="bg-blue-600 p-2 rounded-lg font-bold text-lg">TSU</div>
                 <div>
-                    <h1 class="font-bold text-base md:text-lg">ระบบสร้างรายงาน มคอ.5 อัตโนมัติ (Offline / No-API)</h1>
+                    <h1 class="font-bold text-base md:text-lg">ระบบสร้างรายงาน มคอ.5 อัตโนมัติ (ประมวลผลในเบราว์เซอร์)</h1>
                     <p class="text-xs text-slate-300">คณะศึกษาศาสตร์ มหาวิทยาลัยทักษิณ | ข้อมูลตั้งต้น: 0317221 (1/2569)</p>
                 </div>
             </div>
@@ -133,7 +133,7 @@
                 </button>
                 <button onclick="exportToDocx()" class="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded text-sm font-semibold flex items-center gap-1.5 shadow transition">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    ส่งออกเป็น DOCX (Word)
+                    ส่งออกเป็น DOC (Word)
                 </button>
             </div>
         </div>
@@ -143,7 +143,7 @@
     <div class="no-print max-w-5xl mx-auto mt-4 px-4">
         <div class="bg-blue-50 border-l-4 border-blue-600 p-3 rounded flex items-center justify-between text-sm text-blue-900">
             <div>
-                <strong>คำแนะนำ:</strong> ข้อมูลสีน้ำเงินที่มีเส้นประด้านล่างถูกดึงมาจากไฟล์แนบของ <strong>ดร.ขัน</strong> เรียบร้อยแล้ว สามารถ <strong>คลิกเพื่อพิมพ์แก้ไขข้อความหรือตัวเลข</strong> บนหน้ากระดาษได้โดยตรง เมื่อแก้ไขตัวเลขจำนวนนิสิตที่ได้เกรดในหมวดที่ 3 ระบบจะคำนวณร้อยละและ GPA เฉลี่ยให้โดยอัตโนมัติ
+                <strong>คำแนะนำ:</strong> ข้อมูลตั้งต้นเป็นตัวอย่างจากเอกสารที่ตรวจสอบบางส่วน โปรดตรวจสอบทุกช่อง โดยเฉพาะผลการดำเนินงานจริง แผนเดิม และข้อคิดเห็น ก่อนลงนาม สามารถ <strong>คลิกเพื่อพิมพ์แก้ไขข้อความหรือตัวเลข</strong> บนหน้ากระดาษได้โดยตรง เมื่อแก้ไขจำนวนนิสิต ระบบจะคำนวณร้อยละและ GPA ใหม่ ข้อมูลบันทึกไว้ในเบราว์เซอร์นี้โดยอัตโนมัติ ไลบรารีและฟอนต์ต้องใช้อินเทอร์เน็ต
             </div>
         </div>
     </div>
@@ -900,7 +900,7 @@
         <div class="moco-page">
             <div class="text-sm mb-2">
                 <strong>ค. ข้อวิพากษ์สำคัญ จากการวิเคราะห์การตอบแบบประเมินรายวิชาโดยนิสิต (ข้อ 17 ข้อคิดเห็นเพิ่มเติม):</strong>
-                <div contenteditable="true" class="editable-block mt-1" id="eval_comment_box">นิสิตมีความพึงพอใจต่อการจัดการเรียนการสอนในระดับมากที่สุด (ค่าเฉลี่ย 4.77 จาก 5.00) และระบุข้อคิดเห็นในระบบประเมินว่า "อาจารย์เข้าถึงง่ายแต่สอนเข้าใจยากไปนิด" และจากการสนทนากลุ่มพบว่านิสิตชื่นชอบการฝึกปฏิบัติจริงแต่เนื้อหาทฤษฎีโครงสร้างฮาร์ดแวร์บางส่วนมีความซับซ้อน</div>
+                <div contenteditable="true" class="editable-block mt-1" id="eval_comment_box">นิสิตมีความพึงพอใจต่อการจัดการเรียนการสอนในระดับมากที่สุด (ค่าเฉลี่ย 4.77 จาก 5.00) และระบุข้อคิดเห็นในระบบประเมินว่า "อาจารย์เข้าถึงง่ายแต่สอนเข้าใจยากไปนิด"</div>
             </div>
 
             <div class="font-semibold text-sm mb-1 mt-3">5.2 ข้อวิพากษ์ที่สำคัญของนิสิต</div>
@@ -939,9 +939,9 @@
                 <tbody>
                     <tr>
                         <td><div contenteditable="true" class="editable-block">1. ปรับปรุงโจทย์และกิจกรรมการฝึกปฏิบัติการประกอบเครื่องและการติดตั้งระบบปฏิบัติการให้สอดคล้องกับฮาร์ดแวร์รุ่นปัจจุบัน</div></td>
-                        <td class="text-center">✓</td>
                         <td class="text-center"></td>
-                        <td><div contenteditable="true" class="editable-block">นิสิตมีทักษะปฏิบัติที่ดีขึ้นและคะแนนประเมินความพึงพอใจเพิ่มขึ้นจาก 4.57 เป็น 4.77</div></td>
+                        <td class="text-center"></td>
+                        <td><div contenteditable="true" class="editable-block">[โปรดตรวจสอบผลการดำเนินงานและหลักฐานก่อนระบุ]</div></td>
                     </tr>
                 </tbody>
             </table>
@@ -1007,6 +1007,27 @@
             modal.classList.toggle('hidden');
             modal.classList.toggle('flex');
         }
+
+        // บันทึกเฉพาะข้อมูลรายงานในเบราว์เซอร์ของผู้ใช้นี้
+        const draftKey = 'tsutqf05_draft_v1';
+        function saveDraft() {
+            try {
+                const values = Array.from(document.querySelectorAll('#document-container [contenteditable="true"]')).map(el => el.innerHTML);
+                localStorage.setItem(draftKey, JSON.stringify(values));
+            } catch (err) { console.warn('ไม่สามารถบันทึกฉบับร่าง:', err); }
+        }
+        function restoreDraft() {
+            try {
+                const values = JSON.parse(localStorage.getItem(draftKey) || 'null');
+                const fields = document.querySelectorAll('#document-container [contenteditable="true"]');
+                if (Array.isArray(values) && values.length === fields.length) {
+                    fields.forEach((el, i) => { el.innerHTML = values[i]; });
+                    recalculateAll();
+                }
+            } catch (err) { console.warn('ไม่สามารถเรียกฉบับร่าง:', err); }
+        }
+        document.getElementById('document-container').addEventListener('input', saveDraft);
+        restoreDraft();
 
         // ฟังก์ชันคำนวณสถิติเกรดในหมวดที่ 3 อัตโนมัติตามสูตร มคอ.5
         function recalculateAll() {
@@ -1086,27 +1107,28 @@
                 
                 // ดึงค่า STDEV
                 const stdevMatch = text.match(/STDEV\s*:\s*([0-9.]+)/i);
-                if (stdevMatch) document.getElementById('std_dev').innerText = stdevMatch[1];
 
-                // นับเกรดจากตารางรายชื่อนิสิต (จับแพทเทิร์นรหัสนิสิต 10 หลัก ตามด้วยคะแนนและเกรด)
+
+                // แยกแต่ละรายการด้วยรหัสนิสิต ป้องกันจับเกรดจากแถวถัดไป
+                const rowRegex = /\b\d{10}\b([\s\S]*?)(?=\b\d{10}\b|$)/g;
                 const gradeCounts = { A: 0, Bp: 0, B: 0, Cp: 0, C: 0, Dp: 0, D: 0, F: 0 };
-                const rowRegex = /\b\d{10}\b.*?\b(A|B\+|B|C\+|C|D\+|D|F)\b/g;
-                let match;
-                let foundRows = 0;
-                while ((match = rowRegex.exec(text)) !== null) {
+                let row, foundRows = 0, invalidRows = 0;
+                while ((row = rowRegex.exec(text)) !== null) {
+                    // คะแนนรวมตามด้วยเกรด; เครื่องหมาย + ไม่ใช่ word character
+                    const result = row[1].match(/\b\d+(?:\.\d+)?\s+(A|B\+|B|C\+|C|D\+|D|F)(?=\s|$)/);
+                    if (!result) { invalidRows++; continue; }
+                    gradeCounts[result[1].replace('+', 'p')]++;
                     foundRows++;
-                    const g = match[1].replace('+', 'p');
-                    if (gradeCounts[g] !== undefined) gradeCounts[g]++;
                 }
-
-                if (foundRows > 0) {
-                    Object.keys(gradeCounts).forEach(k => {
-                        document.getElementById('g_' + k).innerText = gradeCounts[k];
-                    });
-                    recalculateAll();
-                    statusEl.innerText = `✓ สกัดข้อมูลเกรดนิสิตสำเร็จ จำนวน ${foundRows} คน และคำนวณ GPA ใหม่เรียบร้อยแล้ว`;
+                const totalMatch = text.match(/รวม\s+(\d+)\s+100(?:\.0+)?/);
+                const expected = totalMatch ? Number(totalMatch[1]) : null;
+                if (foundRows && !invalidRows && expected !== null && foundRows === expected) {
+                    Object.keys(gradeCounts).forEach(k => document.getElementById('g_' + k).innerText = gradeCounts[k]);
+                    if (stdevMatch) document.getElementById('std_dev').innerText = stdevMatch[1];
+                    recalculateAll(); saveDraft();
+                    statusEl.innerText = `✓ อ่านเกรด ${foundRows} คนตรงกับยอดสรุปแล้ว โปรดตรวจสอบเกรดแต่ละรายการอีกครั้ง`;
                 } else {
-                    statusEl.innerText = `✓ อ่านไฟล์สำเร็จ (คงค่าสถิติเกรดตามตารางสรุปเดิม)`;
+                    statusEl.innerText = `ตรวจสอบไม่ผ่าน: อ่านได้ ${foundRows} รายการ ยอดสรุป ${expected === null ? 'ไม่พบ' : expected} ไม่เปลี่ยนตารางเกรด กรุณากรอกและตรวจสอบด้วยตนเอง`;
                 }
             } catch (err) {
                 statusEl.innerText = 'เกิดข้อผิดพลาดในการอ่านไฟล์ PDF: ' + err.message;
@@ -1122,6 +1144,13 @@
 
             try {
                 const text = await extractTextFromPdf(file);
+                const period = text.match(/ปีการศึกษา\s*(\d{4})\s*\/\s*(\d)/);
+                const expectedYear = document.getElementById('doc_year').innerText.trim();
+                const expectedTerm = document.getElementById('doc_term').innerText.trim();
+                if (!period || period[1] !== expectedYear || period[2] !== expectedTerm) {
+                    statusEl.innerText = 'ไม่อัปเดต: ปีการศึกษา/ภาคเรียนในไฟล์ไม่ตรงกับรายงาน หรืออ่านไม่พบ โปรดตรวจสอบ';
+                    return;
+                }
                 const partMatch = text.match(/ประเมินแล้ว\s*(\d+)\s*จาก\s*(\d+)\s*คน\s*ร้อยละ\s*([0-9.]+)/);
                 if (partMatch) {
                     document.getElementById('eval_ans_curr').innerText = partMatch[1];
@@ -1134,7 +1163,8 @@
                     const sd = sumMatch[2].replace(',', '.');
                     document.getElementById('eval_overall_curr').innerText = `${mean} (${sd})`;
                 }
-                statusEl.innerText = '✓ อัปเดตข้อมูลผลการประเมินรายวิชาลงในหมวดที่ 5 เรียบร้อยแล้ว';
+                saveDraft();
+                statusEl.innerText = partMatch && sumMatch ? '✓ อัปเดตจำนวนผู้ตอบและคะแนนรวมในคอลัมน์ปัจจุบันแล้ว โปรดตรวจสอบปีการศึกษา คะแนนรายด้าน และข้อคิดเห็นด้วยตนเอง' : 'อ่านข้อมูลได้ไม่ครบ โปรดตรวจสอบจำนวนผู้ตอบและคะแนนรวมด้วยตนเอง';
             } catch (err) {
                 statusEl.innerText = 'เกิดข้อผิดพลาด: ' + err.message;
             }
@@ -1145,7 +1175,24 @@
             const file = event.target.files[0];
             if (!file) return;
             const statusEl = document.getElementById('moco3ParseStatus');
-            statusEl.innerText = '✓ อ่านโครงสร้าง CLOs และแผนการสอนจากไฟล์ มคอ.3 เรียบร้อยแล้ว';
+            statusEl.innerText = 'กำลังอ่านข้อความจาก มคอ.3...';
+            try {
+                const text = (await extractTextFromPdf(file)).replace(/\s+/g, ' ');
+                const found = [];
+                for (let n = 1; n <= 4; n++) {
+                    const re = new RegExp('CLO\\s*' + n + '\\s+([\\s\\S]*?)(?=\\s+CLO\\s*' + (n + 1) + '\\b|$)', 'i');
+                    const match = text.match(re);
+                    let value = match && match[1].trim();
+                    if (n === 4 && value) value = value.split(/\s+(?:หมวดที่|รหัสวิชา|1\. ความรู้)/)[0].trim();
+                    if (!value || value.length < 10 || value.length > 350) throw new Error('ไม่สามารถแยก CLO ทั้ง 4 ข้อได้อย่างมั่นใจ');
+                    found.push(value);
+                }
+                found.forEach((v,i) => document.getElementById('clo' + (i+1) + '_text').innerText = (i+1) + '. ' + v);
+                saveDraft();
+                statusEl.innerText = 'อ่าน CLO 1–4 แล้ว โปรดเทียบกับต้นฉบับ แผนการสอนและข้อมูลอื่นยังไม่ได้อัปเดตอัตโนมัติ';
+            } catch (err) {
+                statusEl.innerText = 'อ่าน CLO ไม่ครบ: ' + err.message + ' โปรดกรอกด้วยตนเอง';
+            }
         }
 
         // ฟังก์ชันส่งออกเป็นไฟล์ Word (.doc / .docx compatible HTML-XML) โดยไม่ใช้ API
